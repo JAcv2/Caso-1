@@ -19,6 +19,8 @@ format: html
 toc: true
 toc-title: ""
 toc-depth: 3
+math: true
+
 ---
 
 ```{r, include=FALSE, echo = FALSE}
@@ -223,7 +225,7 @@ De acuerdo con `inatsymtoms`, quiénes son más inatentos? Los `Father`s o las `
 ## lectura de datos
 library(dplyr)
 x_relevant <- x %>% 
-  select(ADHD, inatsymptoms, Father, Mother)
+  select(ADHD, inatsymptoms, , Sex, Father, Mother)
 ## aquí va el código
 head(x_relevant)
 ```
@@ -235,32 +237,91 @@ x_relevant_ADHD <- x_relevant %>%
 head(x_relevant_ADHD)
 ```
 
-```{r}
-tabla_FvsM_ADHD <- table(x_relevant_ADHD$Mother == 0, x_relevant_ADHD$inatsymptoms)
-tabla_FvsM_ADHD
-```
-
-```{r}
-tabla_FvsM_ADHD <- table(x_relevant_ADHD$Father == 0, x_relevant_ADHD$inatsymptoms)
-tabla_FvsM_ADHD
-```
 
 ```{r}
 
 father_ADHD <- x_relevant %>% 
-  filter(Father == 0 & ADHD == "yes")
+  filter(Sex =="M" & Father == 0 & ADHD == "yes")
 mother_ADHD <- x_relevant %>% 
-  filter(Mother == 0 & ADHD == "yes")
+  filter(Sex =="F" & Mother == 0 & ADHD == "yes")
 
 n_f<-count(father_ADHD)
 cat("Padres con ADHD:",n_f$n, "\n")
 n_m<-count(mother_ADHD)
 cat("Madres con ADHD:",n_m$n, "\n")
 ```
+```{r}
+library(ggplot2)
+library(gridExtra)
+# Crear el primer histograma
+hist_Father <- ggplot(father_ADHD, aes(x = inatsymptoms)) +
+  geom_histogram(binwidth = 1, alpha = 0.7) +
+  geom_density(aes(y = ..count..), color = "red") +
+  labs(title = "Father ADHD", x = "Inatsymptoms", y = "Frecuencia") +
+  theme_minimal()
+
+# Crear el segundo histograma
+hist_Mother <- ggplot(mother_ADHD, aes(x = inatsymptoms)) +
+  geom_histogram(binwidth = 1, alpha = 0.7) +
+  geom_density(aes(y = ..count..), color = "red") +
+  labs(title = "Mother ADHD", x = "Inatsymptoms", y = "Frecuencia") +
+  theme_minimal()
+
+# Presentar los dos histogramas en un mismo plano
+grid.arrange(hist_Father, hist_Mother, ncol = 2)
+
+```
+
+```{r}
+# Crear Father boxplot
+boxplot_Father <- ggplot(father_ADHD, aes(y = inatsymptoms)) +
+  geom_boxplot() +
+  labs(title = "Father ADHD", x = "Inatsymptoms", y = "Frecuencia") +
+  theme_minimal()
+
+# Crear Mother boxplot
+boxplot_Mother <- ggplot(mother_ADHD, aes(y = inatsymptoms)) +
+  geom_boxplot() +
+  labs(title = "Mother ADHD", x = "Inatsymptoms", y = "Frecuencia") +
+  theme_minimal()
+
+# Presentar los dos histogramas en un mismo plano
+grid.arrange(boxplot_Father, boxplot_Mother, ncol = 2)
+```
+
+**Hipotesis**
+
+$$H_0: \mu_{father_{ADHD}} = \mu_{mother_{ADHD}}$$
+$$H_1: \mu_{father_{ADHD}} \neq \mu_{mother_{ADHD}}$$
+
+```{r}
+# Realizar la prueba t de dos muestras independientes
+t_test_result <- t.test(father_ADHD$inatsymptoms, mother_ADHD$inatsymptoms)
+print(t_test_result)
+```
+
+```{r}
+# Imprimir el valor p
+cat("Valor p:", t_test_result$p.value, "\n")
+
+# Imprimir el intervalo de confianza
+cat("Intervalo de confianza:", t_test_result$conf.int, "\n")
+
+# Imprimir las medias de cada grupo
+cat("Media de father_ADHD:", mean(father_ADHD$inatsymptoms), "\n")
+cat("Media de mother_ADHD:", mean(mother_ADHD$inatsymptoms), "\n")
+
+# Conclusión basada en el valor p
+if (t_test_result$p.value < 0.05) {
+  cat("Se rechaza $h_{0}$.\n")
+} else {
+  cat("No se rechaza $h_{0}$\n")
+}
+
+```
 
 
-Entendiendo que en la columna Father y Mother cuando el valor es cero indica que es padre o madre, se filtra el set de datos, no obstante se identifica que los resultados iguales y tienen ma misma distribución. por lo tanto no es posible afirmar que en esta población los Fathers son más inatentos que las Mother.
-
+Basado en el p-valor (0.0016), con una significancia del 5% ($\alpha=0.05$) se rechaza $H_{0}$ y estadisticamente podemos afirmar que existe una diferencia significativa entre los sintomas de Father y Mother.
 
 
 ## Ejercicio 5 (10 puntos)
@@ -277,17 +338,35 @@ menores <- x %>% filter(Age < 18)
 # Visualizar la relación entre Age y trait1
 ggplot(menores, aes(x = Age, y = trait1)) +
   geom_point() +
-  geom_smooth(method = "lm", col = "blue") +
+  geom_smooth(method = "lm", col = "red") +
   labs(title = "Relación entre Age y trait1 en menores de edad",
-       x = "Age",
-       y = "trait1")
+       x = "Edad",
+       y = "Tiempo de reaccion (ms)")
 
 ```
+
+La línea de regresión tiene una pendiente negativa, lo que sugiere que a medida que la edad (**Age**) aumenta el tiempo de reacción en milisegundos para terminar una tarea (**trait1**) tiene a disminuir.
+
+Sin embargo, para confirmar estadísticamente esta relación, se puede realizar un análisis de regresión lineal y revisar el P-valor asociado a la pendiente de la línea de regresión.
+
+```{r}
+modelo <- lm(trait1 ~ Age, data = menores)
+summary(modelo)
+```
+
+Basado en el P-valor podemos decir que el tiempo de reaccion (ms) para terminar una tarea puede ser explicado por la edad en los menores de edad.
+
+Existe una relación estadisticamente significativa entre la edad y el tiempo de reaccion (ms) para terminar una tarea en menores de edad.
+
+El coeficiente negativo indica que a medida que la edad aumenta el tiempo de reaccion (ms) para terminar una tarea en menores de edad tiende a disminuir.
+
+El coeficiente de determinacion $R^{2}$ de $0.2452$ sugiere que el modelo explica una cantidad moderada de la variabilidad de el tiempo de reaccion (ms) para terminar una tarea en menores de edad.
 
 
 ```{r}
 # Filtrar datos para menores de edad con ADHD
-menores_adhd <- menores %>% filter(ADHD == "yes")
+menores_adhd <- menores %>% 
+  filter(ADHD == "yes")
 
 # Comparar trait1 entre Male y Female
 ggplot(menores_adhd, aes(x = Sex, y = trait1)) +
@@ -303,10 +382,22 @@ t_test_sex
 
 ```
 
+Basado en la imgen podemos obtener las siguientes conclusiones:
 
+Los valores de trait1 están distribuidos de manera similar entre hombres y mujeres con ADHD.
 
+Las medianas y la variabilidad de el tiempo de reaccion (ms) para terminar una tarea en menores de edad **trait1** son comparables entre los dos sexos.
 
-*And here you write some concluding remarks.*
+No parece haber una diferencia significativa en el tiempo de reaccion (ms) para terminar una tarea en menores de edad **trait1** entre hombres y mujeres con ADHD, al menos visualmente.
+
+Basado en los reusltados del modelo, podemos tomar las siguientes conclusiones:
+
+**Hipotesis**
+
+$$H_0: \mu_{trail_M} = \mu_{trail_F}$$
+$$H_1: \mu_{trail_M} \neq \mu_{trail_F}$$
+
+Dado que el valor p (0.574) es mucho mayor que el nivel de significancia del 5% ($\alpha=0.05$), no rechazamos la hipótesis nula. Por lo tanto, tenemos evidencia estadistica para concluir que no existe una diferencia significativa en las medias de el tiempo de reaccion (ms) para terminar una tarea en menores de edad **trail1** entre hombre y mujeres con ADHD.
 
 
 
